@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Script Name: preprocess
+# Author: Dixita Viradiya (24171976)
+# Summary: Cleans a raw dataset by converting separators, fixing formatting, and assigning unique IDs.
+# Handles: Windows line endings, non-ASCII removal, decimal conversion, ID filling, and padding columns.
+
+# Usage check
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <filename>" >&2
+    exit 1
+fi
+
+file="$1"
+tmpfile=$(mktemp)
+
+# Extract and format the header
+read -r header < "$file"
+echo "${header#/}" | tr -d '\r' | tr ';' '\t' > "$tmpfile"
+
+# Process data rows (starting after the header)
+tail -n +2 "$file" | awk -F';' -v maxid=999999 '
+BEGIN { OFS = "\t" }
+{
+    gsub(/\r/, "")
+    for (i = 1; i <= NF; i++) {
+        gsub(/[^[:print:]\t]/, "", $i)
+        if ($i ~ /^[0-9]+,[0-9]+$/) gsub(",", ".", $i)
+    }
+    if ($1 == "") {
+        maxid++
+        $1 = maxid
+    }
+    for (i = NF + 1; i <= 14; i++) $i = ""
+    print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+}' >> "$tmpfile"
+
+# Output the cleaned content and remove temporary file
+cat "$tmpfile"
+rm "$tmpfile"
